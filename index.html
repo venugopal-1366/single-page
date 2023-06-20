@@ -1,86 +1,65 @@
 <!DOCTYPE html>
-<html lang="en" ng-app="menuSearchApp">
+<html ng-app="restaurantApp">
+
 <head>
-  <meta charset="UTF-8">
-  <title>Menu Search App</title>
-  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.7.9/angular.min.js"></script>
-</head>
-<body>
-  <div ng-controller="MenuSearchController as menu">
-    <input type="text" ng-model="menu.searchTerm" placeholder="Search menu items">
-    <button ng-click="menu.narrowItDown()">Narrow It Down For Me!</button>
-
-    <ul>
-      <li ng-repeat="item in menu.foundItems">
-        <h3>{{ item.name }} ({{ item.short_name }})</h3>
-        <p>{{ item.description }}</p>
-        <button ng-click="menu.removeItem($index)">Don't want this one!</button>
-      </li>
-    </ul>
-
-    <p ng-show="menu.nothingFound">Nothing found</p>
-  </div>
-
+  <title>Restaurant App</title>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular-route.min.js"></script>
   <script>
-    // AngularJS module definition
-    angular.module('menuSearchApp', [])
-      .controller('MenuSearchController', MenuSearchController)
-      .service('MenuSearchService', MenuSearchService)
-      .constant('ApiBasePath', 'https://your-restaurant-api.com');
+    var app = angular.module('restaurantApp', ['ngRoute']);
 
-    // MenuSearchController definition
-    MenuSearchController.$inject = ['MenuSearchService'];
-    function MenuSearchController(MenuSearchService) {
-      var menu = this;
-      menu.searchTerm = '';
-      menu.foundItems = [];
-      menu.nothingFound = false;
-
-      menu.narrowItDown = function () {
-        if (menu.searchTerm.trim() === '') {
-          menu.foundItems = [];
-          menu.nothingFound = true;
-          return;
-        }
-
-        MenuSearchService.getMatchedMenuItems(menu.searchTerm)
-          .then(function (foundItems) {
-            menu.foundItems = foundItems;
-            menu.nothingFound = (foundItems.length === 0);
-          })
-          .catch(function (error) {
-            console.log('Error retrieving menu items:', error);
-          });
-      };
-
-      menu.removeItem = function (index) {
-        menu.foundItems.splice(index, 1);
-      };
-    }
-
-    // MenuSearchService definition
-    MenuSearchService.$inject = ['$http', 'ApiBasePath'];
-    function MenuSearchService($http, ApiBasePath) {
-      var service = this;
-
-      service.getMatchedMenuItems = function (searchTerm) {
-        return $http({
-          method: 'GET',
-          url: (ApiBasePath + '/menu_items.json')
-        }).then(function (response) {
-          var items = response.data.menu_items;
-          var foundItems = [];
-
-          for (var i = 0; i < items.length; i++) {
-            if (items[i].description.toLowerCase().indexOf(searchTerm.toLowerCase()) !== -1) {
-              foundItems.push(items[i]);
-            }
-          }
-
-          return foundItems;
+    app.config(function($routeProvider) {
+      $routeProvider
+        .when('/', {
+          template: '<h2>Welcome to our Restaurant</h2><p><a ng-href="#/categories">View Categories</a></p>'
+        })
+        .when('/categories', {
+          template: '<h2>Categories</h2><ul><li ng-repeat="category in categories"><a ng-href="#/items/{{category.id}}">{{category.name}}</a></li></ul>',
+          controller: 'CategoriesController'
+        })
+        .when('/items/:categoryId', {
+          template: '<h2>Items in {{selectedCategory.name}}</h2><ul><li ng-repeat="item in items">{{item.name}} - {{item.price}}</li></ul>',
+          controller: 'ItemsController'
+        })
+        .otherwise({
+          redirectTo: '/'
         });
-      };
-    }
+    });
+
+    app.controller('CategoriesController', function($scope, $http, $routeParams) {
+      $http.get('API_URL/categories')
+        .then(function(response) {
+          $scope.categories = response.data;
+        })
+        .catch(function(error) {
+          console.error('Error fetching categories:', error);
+        });
+    });
+
+    app.controller('ItemsController', function($scope, $http, $routeParams) {
+      var categoryId = $routeParams.categoryId;
+
+      $http.get('API_URL/items?categoryId=' + categoryId)
+        .then(function(response) {
+          $scope.items = response.data;
+        })
+        .catch(function(error) {
+          console.error('Error fetching items:', error);
+        });
+
+      $http.get('API_URL/categories/' + categoryId)
+        .then(function(response) {
+          $scope.selectedCategory = response.data;
+        })
+        .catch(function(error) {
+          console.error('Error fetching category:', error);
+        });
+    });
   </script>
+</head>
+
+<body>
+  <div ng-view></div>
 </body>
+
 </html>
