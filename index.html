@@ -1,36 +1,86 @@
 <!DOCTYPE html>
-<html ng-app="ShoppingListApp">
-
+<html lang="en" ng-app="menuSearchApp">
 <head>
-  <title>Shopping List</title>
-  <link rel="stylesheet" type="text/css" href="styles.css">
-  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
-  <script src="app.js"></script>
+  <meta charset="UTF-8">
+  <title>Menu Search App</title>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.7.9/angular.min.js"></script>
 </head>
+<body>
+  <div ng-controller="MenuSearchController as menu">
+    <input type="text" ng-model="menu.searchTerm" placeholder="Search menu items">
+    <button ng-click="menu.narrowItDown()">Narrow It Down For Me!</button>
 
-<body ng-controller="ShoppingListController as vm">
-  <h1>Shopping List</h1>
-
-  <div class="list-container">
-    <h2>To Buy</h2>
     <ul>
-      <li ng-repeat="item in vm.toBuyList">
-        Buy {{ item.quantity }} {{ item.name }}
-        <button ng-click="vm.buyItem($index)">Bought</button>
+      <li ng-repeat="item in menu.foundItems">
+        <h3>{{ item.name }} ({{ item.short_name }})</h3>
+        <p>{{ item.description }}</p>
+        <button ng-click="menu.removeItem($index)">Don't want this one!</button>
       </li>
     </ul>
-    <p ng-if="vm.isToBuyListEmpty()">Everything is bought!</p>
+
+    <p ng-show="menu.nothingFound">Nothing found</p>
   </div>
 
-  <div class="list-container">
-    <h2>Already Bought</h2>
-    <p ng-if="vm.isAlreadyBoughtListEmpty()">Nothing bought yet.</p>
-    <ul>
-      <li ng-repeat="item in vm.alreadyBoughtList">
-        Bought {{ item.quantity }} {{ item.name }}
-      </li>
-    </ul>
-  </div>
+  <script>
+    // AngularJS module definition
+    angular.module('menuSearchApp', [])
+      .controller('MenuSearchController', MenuSearchController)
+      .service('MenuSearchService', MenuSearchService)
+      .constant('ApiBasePath', 'https://your-restaurant-api.com');
+
+    // MenuSearchController definition
+    MenuSearchController.$inject = ['MenuSearchService'];
+    function MenuSearchController(MenuSearchService) {
+      var menu = this;
+      menu.searchTerm = '';
+      menu.foundItems = [];
+      menu.nothingFound = false;
+
+      menu.narrowItDown = function () {
+        if (menu.searchTerm.trim() === '') {
+          menu.foundItems = [];
+          menu.nothingFound = true;
+          return;
+        }
+
+        MenuSearchService.getMatchedMenuItems(menu.searchTerm)
+          .then(function (foundItems) {
+            menu.foundItems = foundItems;
+            menu.nothingFound = (foundItems.length === 0);
+          })
+          .catch(function (error) {
+            console.log('Error retrieving menu items:', error);
+          });
+      };
+
+      menu.removeItem = function (index) {
+        menu.foundItems.splice(index, 1);
+      };
+    }
+
+    // MenuSearchService definition
+    MenuSearchService.$inject = ['$http', 'ApiBasePath'];
+    function MenuSearchService($http, ApiBasePath) {
+      var service = this;
+
+      service.getMatchedMenuItems = function (searchTerm) {
+        return $http({
+          method: 'GET',
+          url: (ApiBasePath + '/menu_items.json')
+        }).then(function (response) {
+          var items = response.data.menu_items;
+          var foundItems = [];
+
+          for (var i = 0; i < items.length; i++) {
+            if (items[i].description.toLowerCase().indexOf(searchTerm.toLowerCase()) !== -1) {
+              foundItems.push(items[i]);
+            }
+          }
+
+          return foundItems;
+        });
+      };
+    }
+  </script>
 </body>
-
 </html>
